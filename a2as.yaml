@@ -1,0 +1,1830 @@
+manifest:
+  version: "0.1.3"
+  schema: https://a2as.org/cert/schema
+  subject:
+    name: codergoel/multi-agent-knowledge-graph-audit-construction-system
+    source: https://github.com/codergoel/multi-agent-knowledge-graph-audit-construction-system
+    branch: dev
+    commit: "850425b7"
+    scope: [src/utils/config.py, src/utils/constants.py, src/agents/graph_construction_agent.py, src/agents/pre_ingestion_audit_agent.py,
+      src/neo4j/neo4j_for_adk.py, src/agents/ner_agent.py, src/agents/schema_proposal_structured_agent.py, src/tools/pre_ingestion_audit_tools.py,
+      src/agents/file_suggestion_unstructured_agent.py, src/agents/data_quality_rules_agent.py, src/tools/data_quality_rules_tools.py,
+      src/tools/ner_tools.py, src/agents/fact_extraction_agent.py, src/utils/logger.py, src/agents/knowledge_extraction_agent.py,
+      src/agents/user_intent_agent.py, src/tools/schema_tools.py, src/tools/file_tools.py, src/tools/graph_construction_tools.py,
+      src/agents/file_suggestion_agent.py, src/tools/knowledge_extraction_tools.py, src/utils/helper.py, src/tools/schema_proposal_tools.py,
+      src/tools/fact_extraction_tools.py]
+  issued:
+    by: A2AS.org
+    at: '2026-02-11T17:01:31Z'
+    url: https://a2as.org/certified/agents/codergoel/multi-agent-knowledge-graph-audit-construction-system
+  signatures:
+    digest: sha256:JohRYU78eTJAGdrF2A5FrW4rS4xTNdxX42L6Ge0CuiY
+    key: ed25519:xJ_VlI_ME8xaqM050LU6ZkkACT0YUb-8yNil6jQJi14
+    sig: ed25519:rq-gMBSH3qXXe2JPXJIU_9KcKz1mYk7goX-sEwoI19CcJlLKO1QPEXqDKDwZOGXqj35Z-TR6GMnuptk_ARSvCg
+
+agents:
+  check_status_and_escalate.:
+    type: instance
+    models: [gemini-2.5-flash]
+    params:
+      class: CheckStatusAndEscalate
+      base: BaseAgent
+      name: name
+  check_status_and_escalate.0:
+    type: instance
+    models: [gemini-2.5-flash]
+    params:
+      instance: check_status_and_escalate
+  check_status_and_escalate.1:
+    type: instance
+    models: [gemini-2.5-flash]
+    params:
+      class: CheckStatusAndEscalate
+      base: BaseAgent
+      name: check_status_and_escalate
+      instance: agent.CheckStatusAndEscalate
+  data_quality_rules_agent:
+    type: instance
+    models: [llm]
+    tools: [get_approved_user_goal, get_approved_construction_plan, get_approved_entities, get_approved_facts, get_schema_context,
+      add_quality_rule, remove_quality_rule, get_proposed_quality_rules, approve_quality_rules, get_approved_quality_rules]
+    params:
+      name: data_quality_rules_agent_v1
+      description: Helps users define custom data quality rules for knowledge graph validation
+      instruction: ['{...}', '{...}', '{...}']
+  fact_critic_agent:
+    type: instance
+    models: [llm]
+    tools: [get_approved_user_goal, get_approved_entities, get_well_known_relationships, get_proposed_facts]
+    params:
+      name: fact_critic_agent_v1
+      description: Validates proposed fact types and provides structured feedback.
+      instruction: ['{...}', '{...}', '{...}']
+      output_key: feedback
+  fact_proposal_agent:
+    type: instance
+    models: [llm]
+    tools: [get_approved_user_goal, get_approved_files, get_approved_entities, get_well_known_relationships, sample_file,
+      add_proposed_fact, add_proposed_facts_batch, remove_proposed_fact, get_proposed_facts, approve_proposed_facts]
+    params:
+      name: fact_proposal_agent_v1
+      description: Proposes fact types (relationship triples) from markdown files.
+      instruction: ['{...}', '{...}', '{...}']
+  fact_refinement_loop:
+    type: instance
+    params:
+      name: fact_refinement_loop
+      description: Analyzes markdown files to propose fact types based on user intent and feedback
+      max_iterations: "3"
+      sub_agents: [fact_proposal_agent, fact_critic_agent, check_status_and_escalate]
+  file_suggestion_agent:
+    type: instance
+    models: [llm]
+    tools: [get_approved_user_goal, list_available_files, sample_file, set_suggested_files, get_suggested_files, approve_suggested_files]
+    params:
+      name: file_suggestion_agent_v1
+      description: Helps the user select files to import for structured data.
+      instruction: [You are a constructive critic AI reviewing a list of files. Your goal is to suggest relevant files, for
+          constructing a knowledge graph., '**Task:**', Review the file list for relevance to the kind of graph and description
+          specified in the approved user goal., 'For any file that you''re not sure about, use the ''sample_file'' tool to
+          get', a better understanding of the file contents., Only consider structured data files like CSV or JSON., 'Prepare
+          for the task:', '- use the ''get_approved_user_goal'' tool to get the approved user goal', 'Think carefully, repeating
+          these steps until finished:', 1. list available files using the 'list_available_files' tool, '2. evaluate the relevance
+          of each file, then record the list of suggested files using the ''set_suggested_files'' tool', 3. use the 'get_suggested_files'
+          tool to get the list of suggested files, 4. ask the user to approve the set of suggested files, '5. If the user
+          has feedback, go back to step 1 with that feedback in mind', '6. If approved, use the ''approve_suggested_files''
+          tool to record the approval']
+  file_suggestion_unstructured_agent:
+    type: instance
+    models: [llm]
+    tools: [get_approved_user_goal, list_available_files, sample_file, set_suggested_files_unstructured, get_suggested_files_unstructured,
+      approve_suggested_files_unstructured]
+    params:
+      name: file_suggestion_unstructured_agent_v1
+      description: Helps the user select markdown files for unstructured knowledge extraction.
+      instruction: [You are a constructive critic AI reviewing a list of unstructured data files. Your goal is to suggest,
+        relevant markdown files for extracting knowledge to enhance a knowledge graph., '**Task:**', Review the markdown file
+          list for relevance to the kind of graph and description specified in the, approved user goal. The user goal may
+          include specific guidance about what to extract from, 'unstructured sources (e.g., "Add product reviews to analyze
+          quality issues" or', '"Extract provenance information from historical documents").', 'For any file that you''re
+          not sure about, use the ''sample_file'' tool to get', a better understanding of the file contents., Only consider
+          unstructured data files like Markdown (.md)., 'Prepare for the task:', '- use the ''get_approved_user_goal'' tool
+          to get the approved user goal', 'Think carefully, repeating these steps until finished:', 1. list available files
+          using the 'list_available_files' tool, 2. filter for markdown (.md) files only, 3. evaluate the relevance of each
+          markdown file to the user's goal (especially any unstructured extraction goals mentioned), 4. sample files as needed
+          to understand their content, 5. record the list of suggested files using the 'set_suggested_files_unstructured'
+          tool, 6. use the 'get_suggested_files_unstructured' tool to get the list of suggested files, 7. present the suggested
+          files to the user for approval, '8. If the user has feedback, go back to step 1 with that feedback in mind', '9.
+          If approved, use the ''approve_suggested_files_unstructured'' tool to record the approval']
+  graph_construction_agent:
+    type: instance
+    models: [llm]
+    tools: [execute_construction_plan, get_approved_user_goal, get_approved_construction_plan, check_neo4j_connection, get_neo4j_import_directory,
+      get_pre_ingestion_audit_resolutions, create_uniqueness_constraint, load_nodes_from_csv, load_relationships_from_csv,
+      get_ingestion_progress, clear_neo4j_data]
+    params:
+      name: graph_construction_agent_v1
+      description: Executes the approved construction plan to build the knowledge graph in Neo4j
+      instruction: ['{...}', '{...}', '{...}']
+  knowledge_extraction_agent:
+    type: instance
+    models: [llm]
+    tools: [process_single_file, execute_knowledge_extraction, get_approved_user_goal, get_approved_files, get_approved_entities,
+      get_approved_facts, check_neo4j_connection, get_extraction_progress]
+    params:
+      name: knowledge_extraction_agent_v1
+      description: Executes entity and fact extraction from markdown files to build the subject graph in Neo4j
+      instruction: ['{...}', '{...}', '{...}']
+  ner_agent:
+    type: instance
+    models: [llm]
+    tools: [get_approved_user_goal, get_approved_files, sample_file, get_well_known_types, set_proposed_entities, get_proposed_entities,
+      approve_proposed_entities]
+    params:
+      name: ner_agent_v1
+      description: Proposes the kind of named entities that could be extracted from markdown files.
+      instruction: ['{...}', '{...}', '{...}']
+  pre_ingestion_audit_agent:
+    type: instance
+    models: [llm]
+    tools: [get_approved_user_goal, get_approved_construction_plan, get_construction_plan_summary, scan_csv_for_duplicates,
+      check_missing_required_fields, check_foreign_keys, create_audit_query, get_pre_ingestion_audit_queries, resolve_audit_query]
+    params:
+      name: pre_ingestion_audit_agent_v1
+      description: Scans data files before ingestion to detect quality issues and create audit queries
+      instruction: ['{...}', '{...}', '{...}']
+  schema_critic_agent:
+    type: instance
+    models: [llm]
+    tools: [get_approved_user_goal, get_approved_files, get_proposed_construction_plan, sample_file, search_file]
+    params:
+      name: schema_critic_agent_v1
+      description: Criticizes the proposed schema for relevance to the user goal and approved files.
+      instruction: ['{...}', '{...}', '{...}']
+      output_key: feedback
+  schema_proposal_agent:
+    type: instance
+    models: [llm]
+    tools: [get_approved_user_goal, get_approved_files, get_proposed_construction_plan, sample_file, search_file, propose_node_construction,
+      propose_relationship_construction, remove_node_construction, remove_relationship_construction, approve_proposed_construction_plan]
+    params:
+      name: schema_proposal_agent_v1
+      description: Proposes a knowledge graph schema based on the user goal and approved file list
+      instruction: ['{...}', '{...}', '{...}']
+  schema_refinement_loop:
+    type: instance
+    params:
+      name: schema_refinement_loop
+      description: Analyzes approved files to propose a schema based on user intent and feedback
+      max_iterations: "3"
+      sub_agents: [schema_proposal_agent, schema_critic_agent, StopChecker]
+  StopChecker:
+    type: instance
+    models: [gemini-2.5-flash]
+    params:
+      name: StopChecker
+  user_intent_agent:
+    type: instance
+    models: [llm]
+    tools: [set_perceived_user_goal, approve_perceived_user_goal]
+    params:
+      name: user_intent_agent_v1
+      description: Helps the user ideate on a knowledge graph use case.
+      instruction: ['{...}', '{...}', '{...}', '{...}']
+
+models:
+  gemini-2.5-flash:
+    type: default
+    agents: [check_status_and_escalate.0, StopChecker, check_status_and_escalate., check_status_and_escalate.1]
+  llm:
+    type: literal
+    agents: [graph_construction_agent, pre_ingestion_audit_agent, ner_agent, schema_proposal_agent, schema_critic_agent, file_suggestion_unstructured_agent,
+      data_quality_rules_agent, fact_proposal_agent, fact_critic_agent, knowledge_extraction_agent, user_intent_agent, file_suggestion_agent]
+
+tools:
+  add_proposed_fact:
+    type: function
+    agents: [fact_proposal_agent]
+    params:
+      description: "Add a proposed type of fact that could be extracted from the markdown files.\n\nA proposed fact type is\
+        \ a tuple of (subject, predicate, object) where\nthe subject and object are approved entity types and the predicate\
+        \ \nis a proposed relationship label.\n\nArgs:\n    approved_subject_label: Approved label of the subject entity type\n\
+        \    proposed_predicate_label: Label of the predicate (relationship type)\n    approved_object_label: Approved label\
+        \ of the object entity type\n    tool_context: ADK ToolContext containing state and other context\n\nReturns:\n  \
+        \  Dictionary with status and proposed_fact_types or error message."
+  add_proposed_facts_batch:
+    type: function
+    agents: [fact_proposal_agent]
+    params:
+      description: "Add multiple proposed fact types in a single call (EFFICIENT - reduces API calls).\n\nThis is the preferred\
+        \ method for adding facts as it batches multiple facts into \na single tool call, reducing API calls by 70-80% and\
+        \ preventing rate limit errors.\n\nArgs:\n    facts: List of dicts, each containing:\n           - approved_subject_label:\
+        \ str\n           - proposed_predicate_label: str\n           - approved_object_label: str\n    tool_context: ADK\
+        \ ToolContext containing state and other context\n\nExample:\n    facts = [\n        {\n            \"approved_subject_label\"\
+        : \"Artist\",\n            \"proposed_predicate_label\": \"born in\",\n            \"approved_object_label\": \"Location\"\
+        \n        },\n        {\n            \"approved_subject_label\": \"Artist\",\n            \"proposed_predicate_label\"\
+        : \"created\",\n            \"approved_object_label\": \"Artwork\"\n        }\n    ]\n\nReturns:\n    Dictionary with\
+        \ status, added_count, and total_facts or error message."
+  add_quality_rule:
+    type: function
+    agents: [data_quality_rules_agent]
+    params:
+      description: |-
+        Add a proposed data quality rule.
+
+        Rule types supported:
+        - required_relationship: Entity must have a specific relationship
+        - temporal_constraint: Date/time fields must follow logical order
+        - cardinality_constraint: Relationship cardinality (one-to-one, one-to-many, etc.)
+        - value_constraint: Property value must meet certain criteria
+        - orphan_detection: Find nodes with no relationships
+        - unresolved_entity: Find entities without domain correspondence
+        - custom_cypher: Custom Cypher query for validation
+
+        Args:
+            rule_id: Unique identifier for the rule
+            rule_type: Type of quality rule (from list above)
+            description: Human-readable description of what the rule checks
+            severity: "error", "warning", or "info"
+            parameters: Dict with rule-specific parameters
+            tool_context: ADK ToolContext containing state
+
+        Returns:
+            Dictionary with status and updated proposed_quality_rules
+
+        Example:
+            add_quality_rule(
+                "artwork_must_have_creator",
+                "required_relationship",
+                "Every artwork must have a creator",
+                "error",
+                {
+                    "entity_label": "Artwork",
+                    "relationship_type": "CREATED_BY",
+                    "target_label": "Artist"
+                },
+                tool_context
+            )
+  approve_perceived_user_goal:
+    type: function
+    agents: [user_intent_agent]
+    params:
+      description: |-
+        Upon approval from user, will record the perceived user goal as the approved user goal.
+
+        Only call this tool if the user has explicitly approved the perceived user goal.
+
+        Args:
+            tool_context: ADK ToolContext containing state and other context
+  approve_proposed_construction_plan:
+    type: function
+    agents: [schema_proposal_agent]
+    params:
+      description: |-
+        Approve the proposed construction plan, if there is one.
+
+        This copies the proposed_construction_plan to approved_construction_plan in state.
+
+        Args:
+            tool_context: ADK ToolContext containing state and other context
+
+        Returns:
+            Dictionary with status and approved_construction_plan or error message.
+  approve_proposed_entities:
+    type: function
+    agents: [ner_agent]
+    params:
+      description: |-
+        Upon approval from user, records the proposed entity types as an approved list of entity types.
+
+        Only call this tool if the user has explicitly approved the proposed entity types.
+
+        Args:
+            tool_context: ADK ToolContext containing state and other context
+
+        Returns:
+            Dictionary with status and approved_entity_types or error message.
+  approve_proposed_facts:
+    type: function
+    agents: [fact_proposal_agent]
+    params:
+      description: |-
+        Upon user approval, records the proposed fact types as approved fact types.
+
+        Only call this tool if the user has explicitly approved the proposed fact types.
+
+        Args:
+            tool_context: ADK ToolContext containing state and other context
+
+        Returns:
+            Dictionary with status and approved_fact_types or error message.
+  approve_quality_rules:
+    type: function
+    agents: [data_quality_rules_agent]
+    params:
+      description: |-
+        Approve the proposed quality rules.
+
+        This moves the rules from PROPOSED_QUALITY_RULES to APPROVED_QUALITY_RULES
+        and makes them ready for use in audit agents.
+
+        Args:
+            tool_context: ADK ToolContext containing state
+
+        Returns:
+            Dictionary with status and approved_quality_rules
+  approve_suggested_files:
+    type: function
+    agents: [file_suggestion_agent]
+    params:
+      description: |-
+        Approves the suggested files in state for further processing as approved_files.
+
+        Only call this tool if the user has explicitly approved the suggested files.
+
+        Args:
+            tool_context: ADK ToolContext containing state and other context
+
+        Returns:
+            Dictionary with status and approved_files or error message.
+  approve_suggested_files_unstructured:
+    type: function
+    agents: [file_suggestion_unstructured_agent]
+    params:
+      description: |-
+        Approves the suggested unstructured files in state for further processing as approved_files.
+
+        Only call this tool if the user has explicitly approved the suggested files.
+
+        Args:
+            tool_context: ADK ToolContext containing state and other context
+
+        Returns:
+            Dictionary with status and approved_files or error message.
+  check_foreign_keys:
+    type: function
+    agents: [pre_ingestion_audit_agent]
+    params:
+      description: |-
+        Check if all foreign key values in a file exist in the referenced table.
+
+        Args:
+            file_path: Path to the CSV file containing foreign keys
+            foreign_key_column: Name of the foreign key column
+            reference_file: Path to the CSV file being referenced
+            reference_column: Name of the unique identifier column in reference file
+            tool_context: ADK ToolContext
+
+        Returns:
+            Dictionary with status and list of invalid foreign key issues
+  check_missing_required_fields:
+    type: function
+    agents: [pre_ingestion_audit_agent]
+    params:
+      description: |-
+        Check a CSV file for missing/NULL/empty values in required columns.
+
+        Args:
+            file_path: Path to the CSV file
+            required_columns: List of column names that must have values
+            tool_context: ADK ToolContext
+
+        Returns:
+            Dictionary with status and list of missing value issues
+  check_neo4j_connection:
+    type: function
+    agents: [graph_construction_agent, knowledge_extraction_agent]
+    params:
+      description: |-
+        Check if Neo4j connection is available and working.
+
+        Args:
+            tool_context: ADK ToolContext
+
+        Returns:
+            Dictionary with status and connection info
+  clear_neo4j_data:
+    type: function
+    agents: [graph_construction_agent]
+    params:
+      description: |-
+        Clear all data from the Neo4j graph database.
+
+        Use with caution! This will delete all nodes and relationships.
+        Useful for testing to prevent duplicate structures on multiple runs.
+
+        Args:
+            tool_context: ADK ToolContext
+
+        Returns:
+            Dictionary with status and message
+  create_audit_query:
+    type: function
+    agents: [pre_ingestion_audit_agent]
+    params:
+      description: |-
+        Create a pre-ingestion audit query for user review.
+
+        An audit query represents an issue found during pre-ingestion scanning
+        that requires user review and resolution before proceeding with ingestion.
+
+        Args:
+            query_type: "pre_ingestion"
+            category: Issue category (duplicate_unique_identifier, missing_required_field, invalid_foreign_key)
+            evidence: Dict with issue details (file, column, conflicts, etc.)
+            proposed_actions: List of possible resolution actions
+            severity: "error", "warning", or "info"
+            tool_context: ADK ToolContext
+
+        Returns:
+            Dictionary with status and the created audit query
+  create_uniqueness_constraint:
+    type: function
+    agents: [graph_construction_agent]
+    params:
+      description: |-
+        Create a uniqueness constraint for a node label and property key.
+
+        Args:
+            label: The label of the node
+            unique_property_key: The property key that should be unique
+            tool_context: ADK ToolContext
+
+        Returns:
+            Dictionary with status and constraint info
+  execute_construction_plan:
+    type: function
+    agents: [graph_construction_agent]
+    params:
+      description: |-
+        Execute the entire construction plan in one deterministic operation.
+
+        This tool reduces API calls from 15-20+ to just 1-2 by batching all operations:
+        1. Creates all uniqueness constraints
+        2. Loads all nodes from CSV files
+        3. Loads all relationships from CSV files
+
+        Args:
+            tool_context: ADK ToolContext
+
+        Returns:
+            Dictionary with status and comprehensive execution results
+  execute_knowledge_extraction:
+    type: function
+    agents: [knowledge_extraction_agent]
+    params:
+      description: |-
+        Execute knowledge extraction from all approved markdown files in one batch operation.
+
+        This tool reduces API calls by processing all files in one go:
+        1. Gets approved files, entities, and facts
+        2. Processes each markdown file
+        3. Chunks content
+        4. Extracts entities and relationships using LLM
+        5. Creates nodes and relationships in Neo4j
+        6. Links to source chunks for provenance
+
+        Args:
+            tool_context: ADK ToolContext
+
+        Returns:
+            Dictionary with status and comprehensive extraction results
+  get_approved_construction_plan:
+    type: function
+    agents: [graph_construction_agent, pre_ingestion_audit_agent, data_quality_rules_agent]
+    params:
+      description: |-
+        Get the approved construction plan.
+
+        Args:
+            tool_context: ADK ToolContext containing state and other context
+
+        Returns:
+            Dictionary with status and approved_construction_plan or empty dict if not yet approved.
+  get_approved_entities:
+    type: function
+    agents: [data_quality_rules_agent, fact_proposal_agent, fact_critic_agent, knowledge_extraction_agent]
+    params:
+      description: |-
+        Get the approved entity types for extraction.
+
+        Args:
+            tool_context: ADK ToolContext
+
+        Returns:
+            Dictionary with status and approved_entities
+  get_approved_facts:
+    type: function
+    agents: [data_quality_rules_agent, knowledge_extraction_agent]
+    params:
+      description: |-
+        Get the approved fact types.
+
+        Args:
+            tool_context: ADK ToolContext containing state and other context
+
+        Returns:
+            Dictionary with status and approved_fact_types or empty dict if not yet approved.
+  get_approved_files:
+    type: function
+    agents: [ner_agent, schema_proposal_agent, schema_critic_agent, fact_proposal_agent, knowledge_extraction_agent]
+    params:
+      description: |-
+        Get the list of approved markdown files for knowledge extraction.
+
+        Args:
+            tool_context: ADK ToolContext
+
+        Returns:
+            Dictionary with status and approved_files
+  get_approved_quality_rules:
+    type: function
+    agents: [data_quality_rules_agent]
+    params:
+      description: |-
+        Get all approved quality rules.
+
+        Args:
+            tool_context: ADK ToolContext containing state
+
+        Returns:
+            Dictionary with status and approved_quality_rules
+  get_approved_user_goal:
+    type: function
+    agents: [graph_construction_agent, pre_ingestion_audit_agent, ner_agent, schema_proposal_agent, schema_critic_agent, file_suggestion_unstructured_agent,
+      data_quality_rules_agent, fact_proposal_agent, fact_critic_agent, knowledge_extraction_agent, file_suggestion_agent]
+    params:
+      description: |-
+        Returns the user's goal, which is a dictionary containing the kind of graph and its description.
+
+        This tool reads the approved_user_goal from session state, which was set by the User Intent Agent.
+
+        Args:
+            tool_context: ADK ToolContext containing state and other context
+
+        Returns:
+            Dictionary with status and approved_user_goal or error message
+  get_construction_plan_summary:
+    type: function
+    agents: [pre_ingestion_audit_agent]
+    params:
+      description: |-
+        Get a summary of the construction plan to understand what files and
+        columns need to be validated.
+
+        Args:
+            tool_context: ADK ToolContext
+
+        Returns:
+            Dictionary with construction plan summary
+  get_extraction_progress:
+    type: function
+    agents: [knowledge_extraction_agent]
+    params:
+      description: |-
+        Get the current knowledge extraction progress.
+
+        Args:
+            tool_context: ADK ToolContext
+
+        Returns:
+            Dictionary with status and extraction progress
+  get_ingestion_progress:
+    type: function
+    agents: [graph_construction_agent]
+    params:
+      description: |-
+        Get the current ingestion progress and audit trail.
+
+        Args:
+            tool_context: ADK ToolContext
+
+        Returns:
+            Dictionary with status and ingestion progress
+  get_neo4j_import_directory:
+    type: function
+    agents: [graph_construction_agent]
+    params:
+      description: |-
+        Get the Neo4j import directory where CSV files should be placed.
+
+        Also attempts to copy files from local neo4j_import/ directory to Docker container
+        if Neo4j is running in Docker.
+
+        Args:
+            tool_context: ADK ToolContext
+
+        Returns:
+            Dictionary with status and import directory path
+  get_pre_ingestion_audit_queries:
+    type: function
+    agents: [pre_ingestion_audit_agent]
+    params:
+      description: |-
+        Get all pre-ingestion audit queries.
+
+        Args:
+            tool_context: ADK ToolContext
+
+        Returns:
+            Dictionary with all audit queries organized by status and severity
+  get_pre_ingestion_audit_resolutions:
+    type: function
+    agents: [graph_construction_agent]
+    params:
+      description: |-
+        Get all pre-ingestion audit resolutions to apply during ingestion.
+
+        Args:
+            tool_context: ADK ToolContext
+
+        Returns:
+            Dictionary with status and audit_resolutions
+  get_proposed_construction_plan:
+    type: function
+    agents: [schema_proposal_agent, schema_critic_agent]
+    params:
+      description: |-
+        Get the proposed construction plan, a dictionary of construction rules.
+
+        Args:
+            tool_context: ADK ToolContext containing state and other context
+
+        Returns:
+            Dictionary with the proposed construction plan (may be empty if none proposed yet).
+  get_proposed_entities:
+    type: function
+    agents: [ner_agent]
+    params:
+      description: |-
+        Gets the list of proposed entity types to extract from unstructured text.
+
+        Args:
+            tool_context: ADK ToolContext containing state and other context
+
+        Returns:
+            Dictionary with status and proposed_entity_types (may be empty list if not set yet).
+  get_proposed_facts:
+    type: function
+    agents: [fact_proposal_agent, fact_critic_agent]
+    params:
+      description: |-
+        Get the proposed types of facts that could be extracted from the markdown files.
+
+        Args:
+            tool_context: ADK ToolContext containing state and other context
+
+        Returns:
+            Dictionary with status and proposed_fact_types (may be empty dict if not set yet).
+  get_proposed_quality_rules:
+    type: function
+    agents: [data_quality_rules_agent]
+    params:
+      description: |-
+        Get all proposed quality rules.
+
+        Args:
+            tool_context: ADK ToolContext containing state
+
+        Returns:
+            Dictionary with status and proposed_quality_rules
+  get_schema_context:
+    type: function
+    agents: [data_quality_rules_agent]
+    params:
+      description: |-
+        Get the current schema context (construction plan, entities, facts)
+        to help the agent understand what rules are applicable.
+
+        Args:
+            tool_context: ADK ToolContext containing state
+
+        Returns:
+            Dictionary with schema information or error message
+  get_suggested_files:
+    type: function
+    agents: [file_suggestion_agent]
+    params:
+      description: |-
+        Get the files that have been suggested for data import.
+
+        Helps encourage the LLM to first set the suggested files before approving.
+        This is an important strategy for maintaining consistency through defined values.
+
+        Args:
+            tool_context: ADK ToolContext containing state and other context
+
+        Returns:
+            Dictionary with status and suggested_files or error message.
+  get_suggested_files_unstructured:
+    type: function
+    agents: [file_suggestion_unstructured_agent]
+    params:
+      description: |-
+        Get the markdown files that have been suggested for knowledge extraction.
+
+        Helps encourage the LLM to first set the suggested files before approving.
+        This is an important strategy for maintaining consistency through defined values.
+
+        Args:
+            tool_context: ADK ToolContext containing state and other context
+
+        Returns:
+            Dictionary with status and suggested_files or error message.
+  get_well_known_relationships:
+    type: function
+    agents: [fact_proposal_agent, fact_critic_agent]
+    params:
+      description: |-
+        Gets the approved relationship types from the construction plan (structured data phase)
+        to avoid proposing redundant fact types in the unstructured data phase.
+
+        This tool helps the agent understand what relationships already exist in the graph
+        from structured data, so it can focus on discovering NEW relationships that only
+        appear in unstructured text.
+
+        Args:
+            tool_context: ADK ToolContext containing state and other context
+
+        Returns:
+            Dictionary with status and existing_relationships list, or empty list if none exist.
+            Each relationship contains: relationship_type, from_label, to_label
+
+        Example return:
+            {
+                "status": "success",
+                "existing_relationships": [
+                    {
+                        "relationship_type": "CREATED_BY",
+                        "from_label": "Artwork",
+                        "to_label": "Artist"
+                    },
+                    {
+                        "relationship_type": "LOCATED_AT",
+                        "from_label": "Artwork",
+                        "to_label": "Location"
+                    }
+                ]
+            }
+  get_well_known_types:
+    type: function
+    agents: [ner_agent]
+    params:
+      description: |-
+        Gets the approved node labels from the construction plan that represent well-known entity types.
+
+        Well-known entities closely correlate with existing node labels in the graph schema.
+        For example, if "Product" is a node label, then "Product" is a well-known entity type.
+
+        Args:
+            tool_context: ADK ToolContext containing state and other context
+
+        Returns:
+            Dictionary with status and approved_labels (set of node labels) or error message.
+  list_available_files:
+    type: function
+    agents: [file_suggestion_unstructured_agent, file_suggestion_agent]
+    params:
+      description: |-
+        Lists files available for knowledge graph construction.
+        All files are relative to the data directory.
+
+        For structured data agent, focuses on CSV/JSON files.
+        The agent will filter based on file extensions.
+
+        Args:
+            tool_context: ADK ToolContext containing state and other context
+
+        Returns:
+            Dictionary with status and list of file names or error message.
+            If 'success', includes 'all_available_files' key with list of file names.
+            If 'error', includes 'error_message' key.
+  load_nodes_from_csv:
+    type: function
+    agents: [graph_construction_agent]
+    params:
+      description: |-
+        Load nodes from a CSV file into Neo4j.
+
+        Uses LOAD CSV WITH HEADERS and MERGE to create/update nodes based on
+        the unique_column_name. Handles pre-ingestion audit resolutions.
+
+        Args:
+            source_file: Path to CSV file (relative to Neo4j import directory)
+            label: Node label to create
+            unique_column_name: Column name used for unique identification
+            properties: List of property names to import from CSV
+            tool_context: ADK ToolContext
+
+        Returns:
+            Dictionary with status and loading results
+  load_relationships_from_csv:
+    type: function
+    agents: [graph_construction_agent]
+    params:
+      description: |-
+        Load relationships from a CSV file into Neo4j.
+
+        Applies pre-ingestion audit resolutions to skip problematic relationship rows.
+
+        Args:
+            source_file: Path to CSV file (relative to Neo4j import directory)
+            relationship_type: Type of relationship to create
+            from_node_label: Label of source node
+            from_node_column: Column name for source node identifier
+            to_node_label: Label of target node
+            to_node_column: Column name for target node identifier
+            properties: Optional list of relationship properties to import
+            tool_context: ADK ToolContext
+
+        Returns:
+            Dictionary with status and loading results
+  process_single_file:
+    type: function
+    agents: [knowledge_extraction_agent]
+    params:
+      description: |-
+        Process a single markdown file for knowledge extraction.
+
+        This tool processes one file at a time, which helps with debugging
+        and provides better error reporting.
+
+        Args:
+            file_name: Name of the markdown file to process
+            tool_context: ADK ToolContext
+
+        Returns:
+            Dictionary with status and processing results
+  propose_node_construction:
+    type: function
+    agents: [schema_proposal_agent]
+    params:
+      description: |-
+        Propose a node construction for an approved file that supports the user goal.
+
+        The construction will be added to the proposed construction plan dictionary
+        using proposed_label as the key.
+
+        The construction entry will be a dictionary with the following keys:
+        - construction_type: "node"
+        - source_file: the approved file to propose a node construction for
+        - label: the proposed label of the node
+        - unique_column_name: the name of the column that will be used to uniquely identify constructed nodes
+        - properties: A list of property names for the node, derived from column names in the approved file
+
+        Args:
+            approved_file: The approved file to propose a node construction for
+            proposed_label: The proposed label for constructed nodes (used as key in the construction plan)
+            unique_column_name: The name of the column that will be used to uniquely identify constructed nodes
+            proposed_properties: column names that should be imported as node properties
+            tool_context: ADK ToolContext containing state and other context
+
+        Returns:
+            Dictionary with status and node_construction or error message.
+  propose_relationship_construction:
+    type: function
+    agents: [schema_proposal_agent]
+    params:
+      description: |-
+        Propose a relationship construction for an approved file that supports the user goal.
+
+        The construction will be added to the proposed construction plan dictionary
+        using proposed_relationship_type as the key.
+
+        Args:
+            approved_file: The approved file to propose a relationship construction for
+            proposed_relationship_type: The proposed label for constructed relationships
+            from_node_label: The label of the source node
+            from_node_column: The name of the column within the approved file that will be used to uniquely identify source nodes
+            to_node_label: The label of the target node
+            to_node_column: The name of the column within the approved file that will be used to uniquely identify target nodes
+            proposed_properties: column names that should be imported as relationship properties
+            tool_context: ADK ToolContext containing state and other context
+
+        Returns:
+            Dictionary with status and relationship_construction or error message.
+  remove_node_construction:
+    type: function
+    agents: [schema_proposal_agent]
+    params:
+      description: |-
+        Remove a node construction from the proposed construction plan based on label.
+
+        Args:
+            node_label: The label of the node construction to remove
+            tool_context: ADK ToolContext containing state and other context
+
+        Returns:
+            Dictionary with status and confirmation or error message.
+  remove_proposed_fact:
+    type: function
+    agents: [fact_proposal_agent]
+    params:
+      description: |-
+        Remove a specific proposed fact type by its predicate label.
+
+        Use this when the critic identifies a fact that should be removed
+        (e.g., duplicates, inverse relationships, semantic redundancy).
+
+        Args:
+            proposed_predicate_label: The predicate label (key) of the fact to remove
+            tool_context: ADK ToolContext containing state and other context
+
+        Returns:
+            Dictionary with status and remaining proposed_facts or error message.
+
+        Example:
+            remove_proposed_fact("owns", tool_context)
+            # Removes the fact with predicate "owns"
+  remove_quality_rule:
+    type: function
+    agents: [data_quality_rules_agent]
+    params:
+      description: |-
+        Remove a proposed quality rule by its ID.
+
+        Args:
+            rule_id: The ID of the rule to remove
+            tool_context: ADK ToolContext containing state
+
+        Returns:
+            Dictionary with status and updated proposed_quality_rules
+  remove_relationship_construction:
+    type: function
+    agents: [schema_proposal_agent]
+    params:
+      description: |-
+        Remove a relationship construction from the proposed construction plan based on type.
+
+        Args:
+            relationship_type: The type of the relationship construction to remove
+            tool_context: ADK ToolContext containing state and other context
+
+        Returns:
+            Dictionary with status and confirmation or error message.
+  resolve_audit_query:
+    type: function
+    agents: [pre_ingestion_audit_agent]
+    params:
+      description: "Record user's resolution decision for a pre-ingestion audit query.\n\nArgs:\n    query_id: ID of the audit\
+        \ query to resolve\n    resolution: User's decision (skip_record, use_first, use_second, merge, \n               \
+        \ manual_fix, update_construction_plan, approve, reject)\n    notes: User's notes explaining the decision\n    tool_context:\
+        \ ADK ToolContext\n\nReturns:\n    Dictionary with status and updated audit query"
+  sample_file:
+    type: function
+    agents: [ner_agent, schema_proposal_agent, schema_critic_agent, file_suggestion_unstructured_agent, fact_proposal_agent,
+      file_suggestion_agent]
+    params:
+      description: |-
+        Samples a file by reading its content as text.
+
+        Treats any file as text and reads up to a maximum of 100 lines.
+        This tool works for CSV, JSON, Markdown, and other text files.
+
+        Args:
+            file_path: File to sample, relative to the data directory
+            tool_context: ADK ToolContext containing state and other context
+
+        Returns:
+            Dictionary with status and file content or error message.
+            If 'success', includes 'content' key with textual file content (up to 100 lines).
+            If 'error', includes 'error_message' key.
+  scan_csv_for_duplicates:
+    type: function
+    agents: [pre_ingestion_audit_agent]
+    params:
+      description: |-
+        Scan a CSV file for duplicate values in the unique identifier column.
+
+        Args:
+            file_path: Path to the CSV file
+            unique_column: Name of the column that should have unique values
+            tool_context: ADK ToolContext
+
+        Returns:
+            Dictionary with status and list of duplicate issues found
+  search_file:
+    type: function
+    agents: [schema_proposal_agent, schema_critic_agent]
+    params:
+      description: |-
+        Searches any text file (markdown, csv, txt) for lines containing the given query string.
+        Simple grep-like functionality that works with any text file.
+        Search is always case insensitive.
+
+        This tool is useful for verifying that columns exist in CSV files or finding specific content.
+
+        Args:
+            file_path: Path to the file, relative to the data directory.
+            query: The string to search for.
+            tool_context: ADK ToolContext containing state and other context
+
+        Returns:
+            Dictionary with status and search results or error message.
+            If 'success', includes 'search_results' containing:
+                - 'metadata': dict with path, query, lines_found
+                - 'matching_lines': list of dicts with 'line_number' and 'content' keys
+            If 'error', includes 'error_message' key.
+  set_perceived_user_goal:
+    type: function
+    agents: [user_intent_agent]
+    params:
+      description: |-
+        Sets the perceived user's goal, including the kind of graph and its description.
+
+        Args:
+            kind_of_graph: 2-3 word definition of the kind of graph, for example "recent US patents"
+            graph_description: a single paragraph description of the graph, summarizing the user's intent
+            tool_context: ADK ToolContext containing state and other context
+  set_proposed_entities:
+    type: function
+    agents: [ner_agent]
+    params:
+      description: |-
+        Sets the list of proposed entity types to extract from unstructured text.
+
+        Entity types should include:
+        - Well-known entities: those that match existing node labels from the graph schema
+        - Discovered entities: those that appear consistently in the text and support the user's goal
+
+        Args:
+            proposed_entity_types: List of entity type names (e.g., ["Product", "Review", "Quality Issue"])
+            tool_context: ADK ToolContext containing state and other context
+
+        Returns:
+            Dictionary with status and proposed_entity_types or error message.
+  set_suggested_files:
+    type: function
+    agents: [file_suggestion_agent]
+    params:
+      description: |-
+        Set the suggested files to be used for data import.
+
+        Args:
+            suggest_files: List of file paths to suggest (relative to data directory)
+            tool_context: ADK ToolContext containing state and other context
+
+        Returns:
+            Dictionary with status and suggested_files or error message.
+  set_suggested_files_unstructured:
+    type: function
+    agents: [file_suggestion_unstructured_agent]
+    params:
+      description: |-
+        Set the suggested unstructured files (markdown) to be used for knowledge extraction.
+
+        Args:
+            suggest_files: List of markdown file paths to suggest (relative to data directory)
+            tool_context: ADK ToolContext containing state and other context
+
+        Returns:
+            Dictionary with status and suggested_files or error message.
+
+teams:
+  fact_refinement_loop:
+    type: loop
+    agents: [fact_refinement_loop, fact_proposal_agent, fact_critic_agent, check_status_and_escalate]
+  schema_refinement_loop:
+    type: loop
+    agents: [schema_refinement_loop, schema_proposal_agent, schema_critic_agent, StopChecker]
+
+imports:
+  add_proposed_fact: src.tools.fact_extraction_tools.add_proposed_fact
+  add_proposed_facts_batch: src.tools.fact_extraction_tools.add_proposed_facts_batch
+  add_quality_rule: src.tools.data_quality_rules_tools.add_quality_rule
+  Agent: google.adk.agents.Agent
+  ALL_AVAILABLE_FILES: src.utils.constants.ALL_AVAILABLE_FILES
+  Any: typing.Any
+  approve_proposed_construction_plan: src.tools.schema_proposal_tools.approve_proposed_construction_plan
+  approve_proposed_entities: src.tools.ner_tools.approve_proposed_entities
+  approve_proposed_facts: src.tools.fact_extraction_tools.approve_proposed_facts
+  approve_quality_rules: src.tools.data_quality_rules_tools.approve_quality_rules
+  APPROVED_CONSTRUCTION_PLAN: src.utils.constants.APPROVED_CONSTRUCTION_PLAN
+  APPROVED_ENTITIES: src.utils.constants.APPROVED_ENTITIES
+  APPROVED_FACTS: src.utils.constants.APPROVED_FACTS
+  APPROVED_FILES: src.utils.constants.APPROVED_FILES
+  APPROVED_QUALITY_RULES: src.utils.constants.APPROVED_QUALITY_RULES
+  APPROVED_USER_GOAL: src.utils.constants.APPROVED_USER_GOAL
+  AsyncGenerator: typing.AsyncGenerator
+  asyncio: asyncio
+  atexit: atexit
+  AUDIT_RESOLUTIONS: src.utils.constants.AUDIT_RESOLUTIONS
+  BaseAgent: google.adk.agents.BaseAgent
+  check_foreign_keys: src.tools.pre_ingestion_audit_tools.check_foreign_keys
+  check_missing_required_fields: src.tools.pre_ingestion_audit_tools.check_missing_required_fields
+  check_neo4j_connection: src.tools.knowledge_extraction_tools.check_neo4j_connection
+  ClassVar: typing.ClassVar
+  clear_neo4j_data: src.tools.graph_construction_tools.clear_neo4j_data
+  create_audit_query: src.tools.pre_ingestion_audit_tools.create_audit_query
+  create_uniqueness_constraint: src.tools.graph_construction_tools.create_uniqueness_constraint
+  csv: csv
+  DEFAULT_MODEL: src.utils.config.DEFAULT_MODEL
+  Dict: typing.Dict
+  Event: google.adk.events.Event
+  EventActions: google.adk.events.EventActions
+  execute_construction_plan: src.tools.graph_construction_tools.execute_construction_plan
+  execute_knowledge_extraction: src.tools.knowledge_extraction_tools.execute_knowledge_extraction
+  find_dotenv: dotenv.find_dotenv
+  GEMINI_FREE_TIER_MIN_INTERVAL: src.utils.config.GEMINI_FREE_TIER_MIN_INTERVAL
+  GEMINI_FREE_TIER_WAIT_TIME: src.utils.config.GEMINI_FREE_TIER_WAIT_TIME
+  get_approved_construction_plan: src.tools.schema_proposal_tools.get_approved_construction_plan
+  get_approved_entities: src.tools.knowledge_extraction_tools.get_approved_entities
+  get_approved_facts: src.tools.knowledge_extraction_tools.get_approved_facts
+  get_approved_files: src.tools.knowledge_extraction_tools.get_approved_files
+  get_approved_quality_rules: src.tools.data_quality_rules_tools.get_approved_quality_rules
+  get_approved_user_goal: src.tools.schema_tools.get_approved_user_goal
+  get_construction_plan_summary: src.tools.pre_ingestion_audit_tools.get_construction_plan_summary
+  get_data_directory: src.tools.file_tools.get_data_directory
+  get_extraction_progress: src.tools.knowledge_extraction_tools.get_extraction_progress
+  get_gemini_api_key: src.utils.config.get_gemini_api_key
+  get_graphdb: src.neo4j.neo4j_for_adk.get_graphdb
+  get_ingestion_progress: src.tools.graph_construction_tools.get_ingestion_progress
+  get_neo4j_import_dir: src.utils.config.get_neo4j_import_dir
+  get_neo4j_import_directory: src.tools.graph_construction_tools.get_neo4j_import_directory
+  get_pre_ingestion_audit_queries: src.tools.pre_ingestion_audit_tools.get_pre_ingestion_audit_queries
+  get_pre_ingestion_audit_resolutions: src.tools.graph_construction_tools.get_pre_ingestion_audit_resolutions
+  get_proposed_construction_plan: src.tools.schema_proposal_tools.get_proposed_construction_plan
+  get_proposed_entities: src.tools.ner_tools.get_proposed_entities
+  get_proposed_facts: src.tools.fact_extraction_tools.get_proposed_facts
+  get_proposed_quality_rules: src.tools.data_quality_rules_tools.get_proposed_quality_rules
+  get_schema_context: src.tools.data_quality_rules_tools.get_schema_context
+  get_well_known_relationships: src.tools.fact_extraction_tools.get_well_known_relationships
+  get_well_known_types: src.tools.ner_tools.get_well_known_types
+  GraphDatabase: neo4j.GraphDatabase
+  infer_foreign_keys: src.tools.pre_ingestion_audit_tools.infer_foreign_keys
+  INGESTION_AUDIT_TRAIL: src.utils.constants.INGESTION_AUDIT_TRAIL
+  InMemorySessionService: google.adk.sessions.InMemorySessionService
+  InternalServerError: litellm.InternalServerError
+  InvocationContext: google.adk.agents.invocation_context.InvocationContext
+  islice: itertools.islice
+  json: json
+  List: typing.List
+  list_available_files: src.tools.file_tools.list_available_files
+  LiteLlm: google.adk.models.lite_llm.LiteLlm
+  LlmAgent: google.adk.agents.LlmAgent
+  load_dotenv: dotenv.load_dotenv
+  load_nodes_from_csv: src.tools.graph_construction_tools.load_nodes_from_csv
+  load_relationships_from_csv: src.tools.graph_construction_tools.load_relationships_from_csv
+  logger: src.utils.logger.logger
+  logging: logging
+  LoopAgent: google.adk.agents.LoopAgent
+  MAX_RETRIES_ON_RATE_LIMIT: src.utils.config.MAX_RETRIES_ON_RATE_LIMIT
+  Node: neo4j.graph.Node
+  Optional: typing.Optional
+  os: os
+  Path: pathlib.Path
+  PERCEIVED_USER_GOAL: src.utils.constants.PERCEIVED_USER_GOAL
+  PRE_INGESTION_AUDIT_QUERIES: src.utils.constants.PRE_INGESTION_AUDIT_QUERIES
+  process_single_file: src.tools.knowledge_extraction_tools.process_single_file
+  propose_node_construction: src.tools.schema_proposal_tools.propose_node_construction
+  propose_relationship_construction: src.tools.schema_proposal_tools.propose_relationship_construction
+  PROPOSED_CONSTRUCTION_PLAN: src.utils.constants.PROPOSED_CONSTRUCTION_PLAN
+  PROPOSED_ENTITIES: src.utils.constants.PROPOSED_ENTITIES
+  PROPOSED_FACTS: src.utils.constants.PROPOSED_FACTS
+  PROPOSED_QUALITY_RULES: src.utils.constants.PROPOSED_QUALITY_RULES
+  RateLimitError: litellm.RateLimitError
+  re: re
+  Record: neo4j.Record
+  Relationship: neo4j.graph.Relationship
+  remove_node_construction: src.tools.schema_proposal_tools.remove_node_construction
+  remove_proposed_fact: src.tools.fact_extraction_tools.remove_proposed_fact
+  remove_quality_rule: src.tools.data_quality_rules_tools.remove_quality_rule
+  remove_relationship_construction: src.tools.schema_proposal_tools.remove_relationship_construction
+  resolve_audit_query: src.tools.pre_ingestion_audit_tools.resolve_audit_query
+  Result: neo4j.Result
+  RETRY_BACKOFF_MULTIPLIER: src.utils.config.RETRY_BACKOFF_MULTIPLIER
+  Runner: google.adk.runners.Runner
+  sample_file: src.tools.file_tools.sample_file
+  scan_csv_for_duplicates: src.tools.pre_ingestion_audit_tools.scan_csv_for_duplicates
+  search_file: src.tools.file_tools.search_file
+  Session: google.adk.sessions.Session
+  Set: typing.Set
+  set_proposed_entities: src.tools.ner_tools.set_proposed_entities
+  subprocess: subprocess
+  SUGGESTED_FILES: src.utils.constants.SUGGESTED_FILES
+  sys: sys
+  time: time
+  tool_error: src.neo4j.neo4j_for_adk.tool_error
+  tool_success: src.neo4j.neo4j_for_adk.tool_success
+  ToolContext: google.adk.tools.ToolContext
+  traceback: traceback
+  Tuple: typing.Tuple
+  types: google.genai.types
+  uuid: uuid
+  warnings: warnings
+
+functions:
+  __getattr__:
+    type: sync
+    module: src.neo4j.neo4j_for_adk
+    args: [self, name]
+  __init__:
+    type: sync
+    module: src.utils.helper
+    args: [self, agent, runner, user_id, session_id]
+  _chunk_markdown_by_separator:
+    type: sync
+    module: src.tools.knowledge_extraction_tools
+    args: [text, separator]
+    params:
+      returns: List[Dict]
+  _create_extraction_prompt:
+    type: sync
+    module: src.tools.knowledge_extraction_tools
+    args: [context, schema, chunk_text]
+    params:
+      returns: str
+  _create_extraction_schema:
+    type: sync
+    module: src.tools.knowledge_extraction_tools
+    args: [approved_entities, approved_facts]
+    params:
+      returns: Dict
+  _extract_entities_and_relationships:
+    type: sync
+    module: src.tools.knowledge_extraction_tools
+    args: [chunk_text, context, schema]
+    params:
+      returns: Dict
+  _extract_title_from_markdown:
+    type: sync
+    module: src.tools.knowledge_extraction_tools
+    args: [markdown_text]
+    params:
+      returns: str
+  _file_context:
+    type: sync
+    module: src.tools.knowledge_extraction_tools
+    args: [file_path, num_lines]
+    params:
+      returns: str
+  _parse_resolutions_for_file:
+    type: sync
+    module: src.tools.graph_construction_tools
+    args: [source_file, unique_column_name, tool_context]
+    params:
+      returns: Tuple
+  _process_markdown_file:
+    type: sync
+    module: src.tools.knowledge_extraction_tools
+    args: [file_path, approved_entities, approved_facts, graphdb]
+    params:
+      returns: Dict
+  _run_async_impl:
+    type: async
+    module: src.agents.fact_extraction_agent
+    args: [self, ctx]
+    params:
+      returns: AsyncGenerator
+  add_proposed_fact:
+    type: sync
+    module: src.tools.fact_extraction_tools
+    args: [approved_subject_label, proposed_predicate_label, approved_object_label, tool_context]
+    params:
+      returns: Dict
+  add_proposed_facts_batch:
+    type: sync
+    module: src.tools.fact_extraction_tools
+    args: [facts, tool_context]
+    params:
+      returns: Dict
+  add_quality_rule:
+    type: sync
+    module: src.tools.data_quality_rules_tools
+    args: [rule_id, rule_type, description, severity, parameters, tool_context]
+    params:
+      returns: Dict
+  approve_perceived_user_goal:
+    type: sync
+    module: src.agents.user_intent_agent
+    args: [tool_context]
+  approve_proposed_construction_plan:
+    type: sync
+    module: src.tools.schema_proposal_tools
+    args: [tool_context]
+    params:
+      returns: Dict
+  approve_proposed_entities:
+    type: sync
+    module: src.tools.ner_tools
+    args: [tool_context]
+    params:
+      returns: Dict
+  approve_proposed_facts:
+    type: sync
+    module: src.tools.fact_extraction_tools
+    args: [tool_context]
+    params:
+      returns: Dict
+  approve_quality_rules:
+    type: sync
+    module: src.tools.data_quality_rules_tools
+    args: [tool_context]
+    params:
+      returns: Dict
+  approve_suggested_files:
+    type: sync
+    module: src.agents.file_suggestion_agent
+    args: [tool_context]
+    params:
+      returns: Dict
+  approve_suggested_files_unstructured:
+    type: sync
+    module: src.agents.file_suggestion_unstructured_agent
+    args: [tool_context]
+    params:
+      returns: Dict
+  call:
+    type: async
+    module: src.utils.helper
+    args: [self, query, verbose]
+  check_foreign_keys:
+    type: sync
+    module: src.tools.pre_ingestion_audit_tools
+    args: [file_path, foreign_key_column, reference_file, reference_column, tool_context]
+    params:
+      returns: Dict
+  check_missing_required_fields:
+    type: sync
+    module: src.tools.pre_ingestion_audit_tools
+    args: [file_path, required_columns, tool_context]
+    params:
+      returns: Dict
+  check_neo4j_connection:
+    type: sync
+    module: src.tools.knowledge_extraction_tools
+    args: [tool_context]
+    params:
+      returns: Dict
+  clear_neo4j_data:
+    type: sync
+    module: src.tools.graph_construction_tools
+    args: [tool_context]
+    params:
+      returns: Dict
+  close:
+    type: sync
+    module: src.neo4j.neo4j_for_adk
+    args: [self]
+  create_audit_query:
+    type: sync
+    module: src.tools.pre_ingestion_audit_tools
+    args: [query_type, category, evidence, proposed_actions, severity, tool_context]
+    params:
+      returns: Dict
+  create_uniqueness_constraint:
+    type: sync
+    module: src.tools.graph_construction_tools
+    args: [label, unique_property_key, tool_context]
+    params:
+      returns: Dict
+  execute_construction_plan:
+    type: sync
+    module: src.tools.graph_construction_tools
+    args: [tool_context]
+    params:
+      returns: Dict
+  execute_knowledge_extraction:
+    type: sync
+    module: src.tools.knowledge_extraction_tools
+    args: [tool_context]
+    params:
+      returns: Dict
+  extract_retry_delay_from_error:
+    type: sync
+    module: src.utils.helper
+    args: [error]
+    params:
+      returns: Optional[float]
+  get_approved_construction_plan:
+    type: sync
+    module: src.tools.schema_proposal_tools
+    args: [tool_context]
+    params:
+      returns: Dict
+  get_approved_entities:
+    type: sync
+    module: src.tools.knowledge_extraction_tools
+    args: [tool_context]
+    params:
+      returns: Dict
+  get_approved_facts:
+    type: sync
+    module: src.tools.fact_extraction_tools
+    args: [tool_context]
+    params:
+      returns: Dict
+  get_approved_files:
+    type: sync
+    module: src.tools.knowledge_extraction_tools
+    args: [tool_context]
+    params:
+      returns: Dict
+  get_approved_quality_rules:
+    type: sync
+    module: src.tools.data_quality_rules_tools
+    args: [tool_context]
+    params:
+      returns: Dict
+  get_approved_user_goal:
+    type: sync
+    module: src.tools.schema_tools
+    args: [tool_context]
+  get_construction_plan_summary:
+    type: sync
+    module: src.tools.pre_ingestion_audit_tools
+    args: [tool_context]
+    params:
+      returns: Dict
+  get_critic_feedback:
+    type: sync
+    module: src.tools.fact_extraction_tools
+    args: [tool_context]
+    params:
+      returns: Dict
+  get_data_directory:
+    type: sync
+    module: src.tools.file_tools
+    params:
+      returns: Path
+  get_driver:
+    type: sync
+    module: src.neo4j.neo4j_for_adk
+    args: [self]
+  get_extraction_progress:
+    type: sync
+    module: src.tools.knowledge_extraction_tools
+    args: [tool_context]
+    params:
+      returns: Dict
+  get_gemini_api_key:
+    type: sync
+    module: src.utils.config
+  get_graphdb:
+    type: sync
+    module: src.neo4j.neo4j_for_adk
+  get_import_directory:
+    type: sync
+    module: src.neo4j.neo4j_for_adk
+    args: [self]
+  get_ingestion_progress:
+    type: sync
+    module: src.tools.graph_construction_tools
+    args: [tool_context]
+    params:
+      returns: Dict
+  get_neo4j_import_dir:
+    type: sync
+    module: src.utils.helper
+  get_neo4j_import_directory:
+    type: sync
+    module: src.tools.graph_construction_tools
+    args: [tool_context]
+    params:
+      returns: Dict
+  get_pre_ingestion_audit_queries:
+    type: sync
+    module: src.tools.pre_ingestion_audit_tools
+    args: [tool_context]
+    params:
+      returns: Dict
+  get_pre_ingestion_audit_resolutions:
+    type: sync
+    module: src.tools.graph_construction_tools
+    args: [tool_context]
+    params:
+      returns: Dict
+  get_proposed_construction_plan:
+    type: sync
+    module: src.tools.schema_proposal_tools
+    args: [tool_context]
+    params:
+      returns: Dict
+  get_proposed_entities:
+    type: sync
+    module: src.tools.ner_tools
+    args: [tool_context]
+    params:
+      returns: Dict
+  get_proposed_facts:
+    type: sync
+    module: src.tools.fact_extraction_tools
+    args: [tool_context]
+    params:
+      returns: Dict
+  get_proposed_quality_rules:
+    type: sync
+    module: src.tools.data_quality_rules_tools
+    args: [tool_context]
+    params:
+      returns: Dict
+  get_schema_context:
+    type: sync
+    module: src.tools.data_quality_rules_tools
+    args: [tool_context]
+    params:
+      returns: Dict
+  get_session:
+    type: sync
+    module: src.utils.helper
+    args: [self]
+  get_suggested_files:
+    type: sync
+    module: src.agents.file_suggestion_agent
+    args: [tool_context]
+    params:
+      returns: Dict
+  get_suggested_files_unstructured:
+    type: sync
+    module: src.agents.file_suggestion_unstructured_agent
+    args: [tool_context]
+    params:
+      returns: Dict
+  get_well_known_relationships:
+    type: sync
+    module: src.tools.fact_extraction_tools
+    args: [tool_context]
+    params:
+      returns: Dict
+  get_well_known_types:
+    type: sync
+    module: src.tools.ner_tools
+    args: [tool_context]
+    params:
+      returns: Dict
+  infer_foreign_keys:
+    type: sync
+    module: src.tools.pre_ingestion_audit_tools
+    args: [file_path, properties, unique_column, construction_plan]
+    params:
+      returns: List[Dict]
+  list_available_files:
+    type: sync
+    module: src.tools.file_tools
+    args: [tool_context]
+    params:
+      returns: Dict
+  load_env:
+    type: sync
+    module: src.utils.helper
+  load_nodes_from_csv:
+    type: sync
+    module: src.tools.graph_construction_tools
+    args: [source_file, label, unique_column_name, properties, tool_context]
+    params:
+      returns: Dict
+  load_relationships_from_csv:
+    type: sync
+    module: src.tools.graph_construction_tools
+    args: [source_file, relationship_type, from_node_label, from_node_column, to_node_label, to_node_column, properties, tool_context]
+    params:
+      returns: Dict
+  make_agent_caller:
+    type: async
+    module: src.utils.helper
+    args: [agent, initial_state]
+    params:
+      returns: AgentCaller
+  process_single_file:
+    type: sync
+    module: src.tools.knowledge_extraction_tools
+    args: [file_name, tool_context]
+    params:
+      returns: Dict
+  propose_node_construction:
+    type: sync
+    module: src.tools.schema_proposal_tools
+    args: [approved_file, proposed_label, unique_column_name, proposed_properties, tool_context]
+    params:
+      returns: Dict
+  propose_relationship_construction:
+    type: sync
+    module: src.tools.schema_proposal_tools
+    args: [approved_file, proposed_relationship_type, from_node_label, from_node_column, to_node_label, to_node_column, proposed_properties,
+      tool_context]
+    params:
+      returns: Dict
+  remove_node_construction:
+    type: sync
+    module: src.tools.schema_proposal_tools
+    args: [node_label, tool_context]
+    params:
+      returns: Dict
+  remove_proposed_fact:
+    type: sync
+    module: src.tools.fact_extraction_tools
+    args: [proposed_predicate_label, tool_context]
+    params:
+      returns: Dict
+  remove_quality_rule:
+    type: sync
+    module: src.tools.data_quality_rules_tools
+    args: [rule_id, tool_context]
+    params:
+      returns: Dict
+  remove_relationship_construction:
+    type: sync
+    module: src.tools.schema_proposal_tools
+    args: [relationship_type, tool_context]
+    params:
+      returns: Dict
+  resolve_audit_query:
+    type: sync
+    module: src.tools.pre_ingestion_audit_tools
+    args: [query_id, resolution, notes, tool_context]
+    params:
+      returns: Dict
+  result_to_adk:
+    type: sync
+    module: src.neo4j.neo4j_for_adk
+    args: [result]
+    params:
+      returns: Dict
+  sample_file:
+    type: sync
+    module: src.tools.file_tools
+    args: [file_path, tool_context]
+    params:
+      returns: Dict
+  scan_csv_for_duplicates:
+    type: sync
+    module: src.tools.pre_ingestion_audit_tools
+    args: [file_path, unique_column, tool_context]
+    params:
+      returns: Dict
+  search_file:
+    type: sync
+    module: src.tools.file_tools
+    args: [file_path, query, tool_context]
+    params:
+      returns: Dict
+  send_query:
+    type: sync
+    module: src.neo4j.neo4j_for_adk
+    args: [self, cypher_query, parameters]
+    params:
+      returns: Dict
+  set_critic_feedback:
+    type: sync
+    module: src.tools.fact_extraction_tools
+    args: [status, message, issues, tool_context]
+    params:
+      returns: Dict
+  set_perceived_user_goal:
+    type: sync
+    module: src.agents.user_intent_agent
+    args: [kind_of_graph, graph_description, tool_context]
+  set_proposed_entities:
+    type: sync
+    module: src.tools.ner_tools
+    args: [proposed_entity_types, tool_context]
+    params:
+      returns: Dict
+  set_suggested_files:
+    type: sync
+    module: src.agents.file_suggestion_agent
+    args: [suggest_files, tool_context]
+    params:
+      returns: Dict
+  set_suggested_files_unstructured:
+    type: sync
+    module: src.agents.file_suggestion_unstructured_agent
+    args: [suggest_files, tool_context]
+    params:
+      returns: Dict
+  setup_logger:
+    type: sync
+    module: src.utils.logger
+    args: [name, level]
+    params:
+      returns: logging.Logger
+  to_python:
+    type: sync
+    module: src.neo4j.neo4j_for_adk
+    args: [value]
+  tool_error:
+    type: sync
+    module: src.neo4j.neo4j_for_adk
+    args: [message]
+    params:
+      returns: Dict
+  tool_success:
+    type: sync
+    module: src.neo4j.neo4j_for_adk
+    args: [key, result]
+    params:
+      returns: Dict
+
+variables:
+  DATA_DIRECTORY:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [env_path]
+  GEMINI_API_KEY:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [env_path]
+  NEO4J_DATABASE:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [env_path]
+  NEO4J_IMPORT_DIR:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [env_path]
+  NEO4J_PASSWORD:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [env_path]
+  NEO4J_URI:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [env_path]
+  NEO4J_USERNAME:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [env_path]
+
+files:
+  ./:
+    type: pattern
+    actions: [read]
+    params:
+      patterns: ['*', '*.csv']
+      caller: [list_available_files, get_neo4j_import_directory]
+  .env:
+    type: literal
+    actions: [read]
+    params:
+      path: [project_root]
+      caller: [load_env]
+  data/story1:
+    type: literal
+    actions: [read]
+    params:
+      caller: [scan_csv_for_duplicates, check_missing_required_fields, check_foreign_keys]
+  data_dir:
+    type: variable
+    actions: [read]
+    params:
+      caller: [data_dir.rglob]
+  DATA_DIRECTORY:
+    type: variable
+    actions: [read]
+    params:
+      caller: [Path]
+  file_path:
+    type: variable
+    actions: [read]
+    params:
+      caller: [Path, open]
+  full_path:
+    type: variable
+    actions: [read]
+    params:
+      caller: [open, csv.DictReader]
+      alias: [f]
+  full_path_to_file:
+    type: variable
+    actions: [read]
+    params:
+      caller: [open]
+      alias: [file]
+  local_import_dir:
+    type: variable
+    actions: [read]
+    params:
+      caller: [local_import_dir.glob]
+  NEO4J_IMPORT_DIR:
+    type: variable
+    actions: [read]
+    params:
+      caller: [Path]
+  ref_path:
+    type: variable
+    actions: [read]
+    params:
+      caller: [open, csv.DictReader]
+      alias: [f]
+  source_path:
+    type: variable
+    actions: [read]
+    params:
+      caller: [open, csv.DictReader]
+      alias: [f]
+
+processes:
+  docker:
+    type: shell
+    actions: [exec]
+    args: [[ps, --filter, name=neo4j, --format, '{{.Names}}'], [cp, str(csv_file), '{container_name}:/var/lib/neo4j/import/']]
+    params:
+      caller: [subprocess.run]
+      shell: ["False", "False"]
